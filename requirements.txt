@@ -1,0 +1,2 @@
+   streamlit
+   tradingview_ta
