@@ -13,14 +13,12 @@ st.title("📊 ONS ALTIN (XAU/USD) DİNAMİK SAR HARİTASI VE STRATEJİ MOTORU")
 st.markdown("*(Emrah Uludağ Ons Piyasası SAR Analiz Metodolojisi)*")
 
 # ---------------------------------------------------------
-# YFINANCE İLE ÇOKLU ZAMAN DİLİMİ SAR ÇEKME (SAATLİK DAHİL)
+# YFINANCE İLE ÇOKLU ZAMAN DİLİMİ SAR ÇEKME
 # ---------------------------------------------------------
 @st.cache_data(ttl=30)
 def fetch_sar_for_timeframe(tf_key):
     """Belirli bir zaman dilimi için yfinance ile SAR hesapla"""
     tf_configs = {
-        "1H": {"period": "60d", "interval": "1h", "name": "1 Saatlik"},
-        "4H": {"period": "1y", "interval": "1d", "name": "4 Saatlik", "resample": True},
         "1D": {"period": "1y", "interval": "1d", "name": "Günlük"},
         "1W": {"period": "5y", "interval": "1wk", "name": "Haftalık"},
         "1M": {"period": "10y", "interval": "1mo", "name": "Aylık"}
@@ -35,20 +33,10 @@ def fetch_sar_for_timeframe(tf_key):
         gold = yf.Ticker("GC=F")
         df = gold.history(period=config["period"], interval=config["interval"])
         
-        # 4H için resample işlemi
-        if tf_key == "4H" and config.get("resample"):
-            df = df.resample('4H').agg({
-                'Open': 'first',
-                'High': 'max',
-                'Low': 'min',
-                'Close': 'last',
-                'Volume': 'sum'
-            }).dropna()
-        
         if len(df) > 0:
             price_val = float(df['Close'].iloc[-1])
             
-            # Parabolic SAR hesapla
+            # Parabolic SAR hesapla (aynı mantık)
             high, low, close = df['High'], df['Low'], df['Close']
             sar = calculate_psar(high, low, close)
             sar_val = float(sar.iloc[-1])
@@ -56,8 +44,7 @@ def fetch_sar_for_timeframe(tf_key):
             if sar_val > 0 and price_val > 0:
                 sar_type = "Direnç" if price_val < sar_val else "Destek"
                 return price_val, {"sar": sar_val, "type": sar_type, "label": config["name"]}
-    except Exception as e:
-        print(f"Hata ({tf_key}): {e}")
+    except:
         pass
     
     return None, None
@@ -99,7 +86,7 @@ def calculate_psar(high, low, close, af=0.02, max_af=0.2):
 @st.cache_data(ttl=30)
 def fetch_all_timeframe_sar_data():
     """Tüm zaman dilimleri için SAR verilerini çeker"""
-    timeframes = ["1H", "4H", "1D", "1W", "1M"]
+    timeframes = ["1D", "1W", "1M"]
     results = {}
     current_price = 0
     
@@ -112,7 +99,7 @@ def fetch_all_timeframe_sar_data():
     return current_price, results
 
 # ---------------------------------------------------------
-# ULUDAĞ METODOLOJİSİNE GÖRE ANALİZ MOTORU
+# ULUDAĞ METODOLOJİSİNE GÖRE ANALİZ MOTORU (AYNI)
 # ---------------------------------------------------------
 def analyze_with_uludag_method(price, sar_data, selected_tf):
     analysis = {
@@ -177,7 +164,7 @@ def analyze_with_uludag_method(price, sar_data, selected_tf):
     return analysis
 
 # ---------------------------------------------------------
-# ARAYÜZ
+# SEKME YAPISI (AYNI)
 # ---------------------------------------------------------
 tab1, tab2, tab3 = st.tabs([
     "🔥 CANLI ANALİZ & TAVSİYE MOTORU", 
@@ -189,17 +176,15 @@ with tab1:
     col_l, col_r = st.columns([1, 2])
 
     with col_l:
-        st.subheader("️ Analiz Parametreleri")
+        st.subheader("⚙️ Analiz Parametreleri")
         selected_tf_label = st.radio(
             "Hangi Zaman Dilimine Göre Analiz Yapılsın?",
-            options=["1 Saatlik (1H)", "4 Saatlik (4H)", "1 Günlük (1D)", "1 Haftalık (1W)", "1 Aylık (1M)"],
-            index=1,  # 4H varsayılan
+            options=["1 Günlük (1D)", "1 Haftalık (1W)", "1 Aylık (1M)"],
+            index=0,
             help="Seçtiğiniz zaman diliminin SAR'ı birincil karar mekanizması olacaktır"
         )
         
         tf_code_map = {
-            "1 Saatlik (1H)": "1H",
-            "4 Saatlik (4H)": "4H",
             "1 Günlük (1D)": "1D",
             "1 Haftalık (1W)": "1W",
             "1 Aylık (1M)": "1M"
@@ -246,7 +231,7 @@ with tab1:
             st.info(" **ÖNEMLİ:** Her zaman diliminin kendi mum yapısına göre SAR seviyesi farklıdır ve bağımsız değerlendirilmelidir.")
             
             cols = st.columns(len(sar_data))
-            tf_order = ["1H", "4H", "1D", "1W", "1M"]
+            tf_order = ["1D", "1W", "1M"]
             
             for idx, tf in enumerate(tf_order):
                 if tf in sar_data:
@@ -259,7 +244,7 @@ with tab1:
                     
                     with cols[idx]:
                         if sar_type == "Destek":
-                            st.success(f"**{label}**\n\n${sar_val:.2f}\n\n {delta_text}\n\n**DESTEK**")
+                            st.success(f"**{label}**\n\n${sar_val:.2f}\n\n🟢 {delta_text}\n\n**DESTEK**")
                         else:
                             st.error(f"**{label}**\n\n${sar_val:.2f}\n\n🔴 {delta_text}\n\n**DİRENÇ**")
             
@@ -313,7 +298,7 @@ with tab1:
                 st.markdown(f"""
                 **Zaman Dilimi Analizi:**
                 - {'✓' if analysis['selected_tf_sar'] else '✗'} {selected_tf_label} SAR verisi mevcut
-                - {'✓' if analysis['selected_tf_sar'].get('type') == 'Destek' else ''} {selected_tf_label} SAR'ı destek konumunda
+                - {'✓' if analysis['selected_tf_sar'].get('type') == 'Destek' else '✗'} {selected_tf_label} SAR'ı destek konumunda
                 - {'✓' if analysis['total_sars_above'] == 0 else '✗'} Üstte temizlenmemiş SAR yok
                 """)
             
@@ -373,13 +358,13 @@ with tab2:
             st.markdown("### Tüm Zaman Dilimleri SAR Özeti")
             
             table_data = []
-            for tf in ["1H", "4H", "1D", "1W", "1M"]:
+            for tf in ["1D", "1W", "1M"]:
                 if tf in sar_data:
                     data = sar_data[tf]
                     table_data.append({
                         "Zaman Dilimi": data["label"],
                         "SAR Seviyesi": f"${data['sar']:.2f}",
-                        "Konum": "🟢 Destek" if data["type"] == "Destek" else " Direnç",
+                        "Konum": "🟢 Destek" if data["type"] == "Destek" else "🔴 Direnç",
                         "Fiyat Farkı": f"${price - data['sar']:+.2f}",
                         "Durum": "Aktif" if abs(price - data['sar']) / price < 0.05 else "Uzak"
                     })
@@ -398,7 +383,7 @@ with tab2:
             **SAR Aralığı:** ${min_sar:.2f} - ${max_sar:.2f}
             """)
             
-            for tf in ["1M", "1W", "1D", "4H", "1H"]:
+            for tf in ["1M", "1W", "1D"]:
                 if tf in sar_data:
                     data = sar_data[tf]
                     distance_from_price = abs(price - data["sar"]) / price * 100
@@ -424,7 +409,7 @@ with tab2:
         st.error(f"Hata: {str(e)}")
 
 with tab3:
-    st.header(" ONS PİYASASI TEMEL SAR ANALİZ RAPORU")
+    st.header("📖 ONS PİYASASI TEMEL SAR ANALİZ RAPORU")
     
     st.markdown("""
     ## Emrah Uludağ SAR Metodolojisi - Ons Piyasası İçin
@@ -435,9 +420,7 @@ with tab3:
     ### 2. Zaman Dilimi Hiyerarşisi (EN ÖNEMLİ KURAL)
     
     **Her zaman diliminin kendi SAR'ı BAĞIMSIZDIR:**
-    - **1 Saatlik (1H) SAR:** Kısa vadeli düzeltmeleri gösterir (scalping için)
-    - **4 Saatlik (4H) SAR:** Orta vadeli trendi gösterir (day trading için)
-    - **Günlük (1D) SAR:** Ana trend yönünü gösterir (swing trading için)
+    - **Günlük (1D) SAR:** Ana trend yönünü gösterir
     - **Haftalık (1W) SAR:** Orta-uzun vadeli destek/dirençleri gösterir
     - **Aylık (1M) SAR:** Uzun vadeli ana hedefleri gösterir
     
